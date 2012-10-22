@@ -38,22 +38,58 @@ function cd2 {
 
 set-alias -name cd -value cd2 -option AllScope
 
-function z ( $path, [switch] $list, [switch] $ranked, [switch] $times){
-    if($list){
-        if(-not $path){
-            return $script:zscore
-        }
-    }
-    
+function zMatch ( $path, [switch] $ranked, [switch] $times){
     $expression = '$([convert]::toint32($_.frequency) * [convert]::toint32($_.recent))'
     if($ranked){
         $expression = '$([convert]::toint32($_.recent))'
     } elseif ($times){
         $expression = '$([convert]::toint32($_.frequency))'
     }
-    $pathFound = $zscore | ?{ $_ -match $path } | sort -property @{Expression = "$(iex $expression)" } -desc | select -first 1
+
+    # Escape backslashes in regex
+    $path = $path -replace "\\","\\"
     
+    return $zscore | ?{ $_ -match $path } | sort -property @{Expression = "$(iex $expression)" } -desc | select -first 1
+}
+
+function zTabExpansion($lastBlock) {
+    # Remove command-alias from block
+    $toExpand = $lastBlock -replace "^$(Get-AliasPattern z) ",""
+
+    $pathFound = zMatch $toExpand
+
+    if($pathFound){
+        return $pathFound.path
+    }
+}
+
+function z ( $path, [switch] $list, [switch] $ranked, [switch] $times){
+    if($list){
+        if(-not $path){
+            return $script:zscore
+        }
+    }
+
+    $pathFound = zMatch $path $ranked $times
+
     if($pathFound){
         cd $pathFound.path
+    }
+}
+
+# Tab expansion, as implemented in posh-git
+if (Test-Path Function:\TabExpansion) {
+    Rename-Item Function:\TabExpansion TabExpansionPreZ
+}
+
+function TabExpansion($line, $lastWord) {
+    $lastBlock = [regex]::Split($line, '[|;]')[-1].TrimStart()
+
+    switch -regex ($lastBlock) {
+        # Execute z tab completion for all z aliases
+        "^$(Get-AliasPattern z) (.*)" { zTabExpansion $lastBlock }
+
+        # Fall back on existing tab expansion
+        default { if (Test-Path Function:\TabExpansionPreZ) { TabExpansionPreZ $line $lastWord } }
     }
 }
