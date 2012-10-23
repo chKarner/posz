@@ -8,7 +8,11 @@ $script:zscore = @(import-csv $zscoreFile)
 
 function cd2 {
     param($path)
-    if(-not $path){return;}
+    if(-not $path){
+        # Go Home
+        Set-Location "~"
+        return;
+    }
     
     $fullpath = resolve-path $path
     
