@@ -81,9 +81,14 @@ function z ( $path, [switch] $list, [switch] $ranked, [switch] $times){
     }
 }
 
-# Tab expansion, as implemented in posh-git
+# Tab expansion, idea copied from posh-git (https://github.com/dahlbyk/posh-git)
 if (Test-Path Function:\TabExpansion) {
     Rename-Item Function:\TabExpansion TabExpansionPreZ
+}
+
+function Get-AliasPattern($exe) {
+   $aliases = @($exe) + @(Get-Alias | where { $_.Definition -eq $exe } | select -Exp Name)
+   "($($aliases -join '|'))"
 }
 
 function TabExpansion($line, $lastWord) {
