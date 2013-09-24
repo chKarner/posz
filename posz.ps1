@@ -53,7 +53,7 @@ function zMatch ( $path, [switch] $ranked, [switch] $times){
     # Escape backslashes in regex
     $path = $path -replace "\\","\\"
     
-    return $zscore | ?{ $_ -match $path } | sort -property @{Expression = "$(iex $expression)" } -desc | select -first 1
+    return $zscore | ?{ $_ -match $path } | sort -property {iex $expression} -desc | select -first 1
 }
 
 function zTabExpansion($lastBlock) {
