@@ -11,7 +11,14 @@ function cd2 {
     if(-not $path){
         # Go Home
         Set-Location "~"
-        return;
+        Return;
+    }
+
+    $pathExists = Test-Path $path
+    if(-not $pathExists) {
+        # Path doesn't exist, let Set-Location deal with that...
+        Set-Location $path
+        Return
     }
     
     $fullpath = resolve-path $path
