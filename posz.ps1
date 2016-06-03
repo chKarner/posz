@@ -3,64 +3,64 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $zscoreFile = "$scriptDir\zscores.csv"
 
 if(test-path $zscoreFile){
-$script:zscore = @(import-csv $zscoreFile)
+    $script:zscore = @(import-csv $zscoreFile)
 }
 
-function cd2 {
-    param($path)
+function Get-UnixTime() {
+    return [int][double]::Parse((Get-Date -UFormat %s))
+}
+
+function Get-FRecent($rank, $time) {
+    # relate frequency and time
+    $dx = Get-UnixTime - $time
+    if ($dx -lt 3600) { return $rank * 4 }
+    if ($dx -lt 86400) { return $rank * 2 }
+    if ($dx -lt 604800) { return $rank / 2 }
+    return $rank / 4
+}
+
+function Add-ZDir($path) {
     if(-not $path){
-        # Go Home
-        Set-Location "~"
-        Return;
+        return
     }
 
     $pathExists = Test-Path $path
     if(-not $pathExists) {
-        # Path doesn't exist, let Set-Location deal with that...
-        Set-Location $path
-        Return
+        return
     }
-    
-    $fullpath = resolve-path $path
-    
-    $existingPath = $script:zscore | ?{ $_.path.tostring() -eq $fullpath}
-    if($existingPath){
-        $existingPath.frequency = [convert]::toint32($existingPath.frequency) + 1
-        $existingPath.recent = [convert]::toint32($existingPath.recent) + 10
-    } else{
-        $newPath = new-object psobject
-        $newPath | add-member -name path -type noteproperty -value $fullpath
-        $newPath | add-member -name frequency -type noteproperty -value 1
-        $newPath | add-member -name recent -type noteproperty -value 10
-        $script:zscore +=  $newPath
-    }
-    
-    $recentSum = ($zscore | measure-object -Property recent -Sum).Sum
-    if($recentSum -ge 1000){
-        $script:zscore | %{ $_.recent = [math]::floor([convert]::toint32($_.recent) * 0.9) }
-        $script:zscore = $script:zscore | ?{ $_.recent -ge 1}
-    }
-    
-    $zscore | export-csv $zscoreFile -notypeinformation
-    
-    set-location $path
 
+    $fullpath = Resolve-Path $path
+
+    $existingPath = $script:zscore | Where-Object { $_.path.tostring() -eq $fullpath}
+    if($existingPath){
+        $existingPath.Rank = [convert]::toint32($existingPath.Rank) + 1
+        $existingPath.Time = Get-UnixTime
+    } else{
+        $newPath = New-Object psobject
+        $newPath | Add-Member -name Path -type noteproperty -value $fullpath
+        $newPath | Add-Member -name Rank -type noteproperty -value 1
+        $newPath | Add-Member -name Time -type noteproperty -value Get-UnixTime
+        $script:zscore += $newPath
+    }
+
+    $recentSum = ($zscore | Measure-Object -Property Rank -Sum).Sum
+    if($recentSum -ge 9000){
+        $script:zscore | ForEach-Object { $_.Rank = [math]::floor([convert]::toint32($_.Rank) * 0.99) }
+        $script:zscore = $script:zscore | Where-Object { $_.Rank -ge 1}
+    }
+
+    $zscore | export-csv $zscoreFile -notypeinformation
 }
 
-set-alias -name cd -value cd2 -option AllScope
-
-function zMatch ( $path, [switch] $ranked, [switch] $times){
-    $expression = '$([convert]::toint32($_.frequency) * [convert]::toint32($_.recent))'
-    if($ranked){
-        $expression = '$([convert]::toint32($_.recent))'
-    } elseif ($times){
-        $expression = '$([convert]::toint32($_.frequency))'
-    }
-
+function zMatch ( $path ){
     # Escape backslashes in regex
     $path = $path -replace "\\","\\"
     
-    return $zscore | ?{ $_ -match $path } | sort -property {iex $expression} -desc | select -first 1
+    return $zscore |
+        Where-Object { $_ -match $path } |
+        Select-Object -Property Path,@{Name="Recent"; Expression = {Get-FRecent $_.Rank  $_.Time}}
+        Sort-Object -property Recent -desc |
+        Select-Object -first 1
 }
 
 function zTabExpansion($lastBlock) {
@@ -70,21 +70,21 @@ function zTabExpansion($lastBlock) {
     $pathFound = zMatch $toExpand
 
     if($pathFound){
-        return $pathFound.path
+        return $pathFound.Path
     }
 }
 
-function z ( $path, [switch] $list, [switch] $ranked, [switch] $times){
+function z ( $path, [switch] $list){
     if($list){
         if(-not $path){
             return $script:zscore
         }
     }
 
-    $pathFound = zMatch $path $ranked $times
+    $pathFound = zMatch $path
 
     if($pathFound){
-        cd $pathFound.path
+        Set-Location $pathFound.Path
     }
 }
 
@@ -94,7 +94,7 @@ if (Test-Path Function:\TabExpansion) {
 }
 
 function Get-AliasPattern($exe) {
-   $aliases = @($exe) + @(Get-Alias | where { $_.Definition -eq $exe } | select -Exp Name)
+   $aliases = @($exe) + @(Get-Alias | Where-Object { $_.Definition -eq $exe } | Select-Object -Exp Name)
    "($($aliases -join '|'))"
 }
 
