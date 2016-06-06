@@ -58,7 +58,8 @@ function zMatch ( $path ){
     
     return $zscore |
         Where-Object { $_ -match $path } |
-        Select-Object -Property Path,@{Name="Recent"; Expression = {Get-FRecent $_.Rank  $_.Time}}
+        Select-Object -Property Path,@{
+            Name="Recent"; Expression = {Get-FRecent $_.Rank  $_.Time}} |
         Sort-Object -property Recent -desc |
         Select-Object -first 1
 }
