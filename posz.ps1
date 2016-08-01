@@ -39,7 +39,7 @@ function Add-ZDir($path) {
         $newPath = New-Object psobject
         $newPath | Add-Member -name Path -type noteproperty -value $fullpath
         $newPath | Add-Member -name Rank -type noteproperty -value 1
-        $newPath | Add-Member -name Time -type noteproperty -value Get-UnixTime
+        $newPath | Add-Member -name Time -type noteproperty -value (Get-UnixTime)
         $script:zscore += $newPath
     }
 
