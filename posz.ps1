@@ -75,16 +75,14 @@ function zTabExpansion($lastBlock) {
     }
 }
 
-function z ( $path, [switch] $list){
-    if($list){
-        if(-not $path){
-            return $script:zscore
-        }
+function z ( $path, [switch] $list) {
+    if ($list -or (-not $path)) {
+        return $script:zscore
     }
 
     $pathFound = zMatch $path
 
-    if($pathFound){
+    if($pathFound) {
         Set-Location $pathFound.Path
     }
 }
